@@ -13,6 +13,14 @@ import cv2
 import numpy as np
 
 
+def CHW2HWC(image):
+    return image.transpose([1, 2, 0])
+
+
+def HWC2CHW(image):
+    return image.transpose([2, 0, 1])
+
+
 def color_norm(im, mean, std):
     """Performs per-channel normalization (CHW format)."""
     for i in range(im.shape[0]):
@@ -21,9 +29,13 @@ def color_norm(im, mean, std):
     return im
 
 
-def zero_pad(im, pad_size):
-    """Performs zero padding (CHW format)."""
-    pad_width = ((0, 0), (pad_size, pad_size), (pad_size, pad_size))
+def zero_pad(im, pad_size, order="CHW"):
+    """Performs zero padding (CHW or HWC format)."""
+    assert order in ["CHW", "HWC"]
+    if order == "CHW":
+        pad_width = ((0, 0), (pad_size, pad_size), (pad_size, pad_size))
+    else:
+        pad_width = ((pad_size, pad_size), (pad_size, pad_size), (0, 0))
     return np.pad(im, pad_width, mode="constant")
 
 
@@ -38,19 +50,34 @@ def horizontal_flip(im, p, order="CHW"):
     return im
 
 
-def random_crop(im, size, pad_size=0):
-    """Performs random crop (CHW format)."""
+def random_crop(im, size, pad_size=0, order="CHW"):
+    """Performs random crop (CHW or HWC format)."""
     if pad_size > 0:
-        im = zero_pad(im=im, pad_size=pad_size)
-    h, w = im.shape[1:]
-    y = np.random.randint(0, h - size)
-    x = np.random.randint(0, w - size)
-    im_crop = im[:, y : (y + size), x : (x + size)]
-    assert im_crop.shape[1:] == (size, size)
+        im = zero_pad(im=im, pad_size=pad_size, order=order)
+    if order == "CHW":
+        h, w = im.shape[1:]
+        y = 0
+        if h > size:
+            y = np.random.randint(0, h - size)
+        x = 0
+        if w > size:
+            x = np.random.randint(0, w - size)
+        im_crop = im[:, y : (y + size), x : (x + size)]
+        assert im_crop.shape[1:] == (size, size)
+    else:
+        h, w = im.shape[:2]
+        y = 0
+        if h > size:
+            y = np.random.randint(0, h - size)
+        x = 0
+        if w > size:
+            x = np.random.randint(0, w - size)
+        im_crop = im[y : (y + size), x : (x + size), :]
+        assert im_crop.shape[:2] == (size, size)
     return im_crop
 
 
-def scale(size, im):
+def scale(size, im, interpolation=cv2.INTER_LINEAR, dtype=np.float32):
     """Performs scaling (HWC format)."""
     h, w = im.shape[:2]
     if (w <= h and w == size) or (h <= w and h == size):
@@ -60,8 +87,8 @@ def scale(size, im):
         h_new = int(math.floor((float(h) / w) * size))
     else:
         w_new = int(math.floor((float(w) / h) * size))
-    im = cv2.resize(im, (w_new, h_new), interpolation=cv2.INTER_LINEAR)
-    return im.astype(np.float32)
+    im = cv2.resize(im, (w_new, h_new), interpolation=interpolation)
+    return im.astype(dtype)
 
 
 def center_crop(size, im):

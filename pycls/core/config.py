@@ -34,11 +34,23 @@ _C.MODEL.TYPE = ""
 # Number of weight layers
 _C.MODEL.DEPTH = 0
 
+# Number of input channels
+_C.MODEL.INPUT_CHANNELS = 3
+
 # Number of classes
 _C.MODEL.NUM_CLASSES = 10
 
-# Loss function (see pycls/models/loss.py for options)
+# Loss function (see pycls/core/builders.py for options)
 _C.MODEL.LOSS_FUN = "cross_entropy"
+
+# Label smoothing eps
+_C.MODEL.LABEL_SMOOTHING_EPS = 0.0
+
+# ASPP channels
+_C.MODEL.ASPP_CHANNELS = 256
+
+# ASPP dilation rates
+_C.MODEL.ASPP_RATES = [6, 12, 18]
 
 
 # ------------------------------------------------------------------------------------ #
@@ -171,6 +183,45 @@ _C.EN.DC_RATIO = 0.0
 _C.EN.DROPOUT_RATIO = 0.0
 
 
+# ---------------------------------------------------------------------------- #
+# NAS options
+# ---------------------------------------------------------------------------- #
+_C.NAS = CfgNode()
+
+# Cell genotype
+_C.NAS.GENOTYPE = 'nas'
+
+# Custom genotype
+_C.NAS.CUSTOM_GENOTYPE = []
+
+# Base NAS width
+_C.NAS.WIDTH = 16
+
+# Total number of cells
+_C.NAS.DEPTH = 20
+
+# Auxiliary heads
+_C.NAS.AUX = False
+
+# Weight for auxiliary heads
+_C.NAS.AUX_WEIGHT = 0.4
+
+# Drop path probability
+_C.NAS.DROP_PROB = 0.0
+
+# Matrix in NAS Bench
+_C.NAS.MATRIX = []
+
+# Operations in NAS Bench
+_C.NAS.OPS = []
+
+# Number of stacks in NAS Bench
+_C.NAS.NUM_STACKS = 3
+
+# Number of modules per stack in NAS Bench
+_C.NAS.NUM_MODULES_PER_STACK = 3
+
+
 # ------------------------------------------------------------------------------------ #
 # Batch norm options
 # ------------------------------------------------------------------------------------ #
@@ -235,6 +286,21 @@ _C.OPTIM.WARMUP_FACTOR = 0.1
 # Gradually warm up the OPTIM.BASE_LR over this number of epochs
 _C.OPTIM.WARMUP_EPOCHS = 0
 
+# Update the learning rate per iter
+_C.OPTIM.ITER_LR = False
+
+# Base learning rate for arch
+_C.OPTIM.ARCH_BASE_LR = 0.0003
+
+# L2 regularization for arch
+_C.OPTIM.ARCH_WEIGHT_DECAY = 0.001
+
+# Optimizer for arch
+_C.OPTIM.ARCH_OPTIM = 'adam'
+
+# Epoch to start optimizing arch
+_C.OPTIM.ARCH_EPOCH = 0.0
+
 
 # ------------------------------------------------------------------------------------ #
 # Training options
@@ -262,6 +328,12 @@ _C.TRAIN.AUTO_RESUME = True
 
 # Weights to start training from
 _C.TRAIN.WEIGHTS = ""
+
+# Percentage of gray images in jig
+_C.TRAIN.GRAY_PERCENTAGE = 0.0
+
+# Portion to create trainA/trainB split
+_C.TRAIN.PORTION = 1.0
 
 
 # ------------------------------------------------------------------------------------ #
@@ -333,6 +405,12 @@ _C.PREC_TIME.NUM_ITER = 30
 
 # Number of GPUs to use (applies to both training and testing)
 _C.NUM_GPUS = 1
+
+# Task (cls, seg, rot, col, jig)
+_C.TASK = "cls"
+
+# Grid in Jigsaw (2, 3); no effect if TASK is not jig
+_C.JIGSAW_GRID = 3
 
 # Output directory
 _C.OUT_DIR = "/tmp"

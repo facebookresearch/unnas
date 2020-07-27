@@ -24,7 +24,10 @@ def compute_time_eval(model):
     model.eval()
     # Generate a dummy mini-batch and copy data to GPU
     im_size, batch_size = cfg.TRAIN.IM_SIZE, int(cfg.TEST.BATCH_SIZE / cfg.NUM_GPUS)
-    inputs = torch.zeros(batch_size, 3, im_size, im_size).cuda(non_blocking=False)
+    if cfg.TASK == "jig":
+        inputs = torch.rand(batch_size, cfg.JIGSAW_GRID ** 2, cfg.MODEL.INPUT_CHANNELS, im_size, im_size).cuda(non_blocking=False)
+    else:
+        inputs = torch.zeros(batch_size, cfg.MODEL.INPUT_CHANNELS, im_size, im_size).cuda(non_blocking=False)
     # Compute precise forward pass time
     timer = Timer()
     total_iter = cfg.PREC_TIME.NUM_ITER + cfg.PREC_TIME.WARMUP_ITER
@@ -46,8 +49,14 @@ def compute_time_train(model, loss_fun):
     model.train()
     # Generate a dummy mini-batch and copy data to GPU
     im_size, batch_size = cfg.TRAIN.IM_SIZE, int(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
-    inputs = torch.rand(batch_size, 3, im_size, im_size).cuda(non_blocking=False)
-    labels = torch.zeros(batch_size, dtype=torch.int64).cuda(non_blocking=False)
+    if cfg.TASK == "jig":
+        inputs = torch.rand(batch_size, cfg.JIGSAW_GRID ** 2, cfg.MODEL.INPUT_CHANNELS, im_size, im_size).cuda(non_blocking=False)
+    else:
+        inputs = torch.rand(batch_size, cfg.MODEL.INPUT_CHANNELS, im_size, im_size).cuda(non_blocking=False)
+    if cfg.TASK in ['col', 'seg']:
+        labels = torch.zeros(batch_size, im_size, im_size, dtype=torch.int64).cuda(non_blocking=False)
+    else:
+        labels = torch.zeros(batch_size, dtype=torch.int64).cuda(non_blocking=False)
     # Cache BatchNorm2D running stats
     bns = [m for m in model.modules() if isinstance(m, torch.nn.BatchNorm2d)]
     bn_stats = [[bn.running_mean.clone(), bn.running_var.clone()] for bn in bns]
@@ -62,7 +71,11 @@ def compute_time_train(model, loss_fun):
         # Forward
         fw_timer.tic()
         preds = model(inputs)
-        loss = loss_fun(preds, labels)
+        if isinstance(preds, tuple):
+            loss = loss_fun(preds[0], labels) + cfg.NAS.AUX_WEIGHT * loss_fun(preds[1], labels)
+            preds = preds[0]
+        else:
+            loss = loss_fun(preds, labels)
         torch.cuda.synchronize()
         fw_timer.toc()
         # Backward

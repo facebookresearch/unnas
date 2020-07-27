@@ -7,3 +7,6 @@ parameterized
 setuptools
 simplejson
 yacs
+scikit-learn
+scikit-image
+thop

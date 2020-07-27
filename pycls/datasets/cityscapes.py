@@ -5,10 +5,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""ImageNet dataset."""
+"""Cityscapes dataset."""
 
 import os
 import re
+import glob
 from sklearn.neighbors import NearestNeighbors
 
 import cv2
@@ -20,7 +21,7 @@ from pycls.core.config import cfg
 from pycls.datasets.prepare import prepare_rot
 from pycls.datasets.prepare import prepare_col
 from pycls.datasets.prepare import prepare_jig
-from pycls.datasets.prepare import prepare_im
+from pycls.datasets.prepare import prepare_seg
 
 
 logger = logging.get_logger(__name__)
@@ -37,14 +38,14 @@ _EIG_VECS = np.array(
 )
 
 
-class ImageNet(torch.utils.data.Dataset):
-    """ImageNet dataset."""
+class Cityscapes(torch.utils.data.Dataset):
+    """Cityscapes dataset."""
 
     def __init__(self, data_path, split, portion, side):
         assert os.path.exists(data_path), "Data path '{}' not found".format(data_path)
         splits = ["train", "val"]
-        assert split in splits, "Split '{}' not supported for ImageNet".format(split)
-        logger.info("Constructing ImageNet {}...".format(split))
+        assert split in splits, "Split '{}' not supported for Cityscapes".format(split)
+        logger.info("Constructing Cityscapes {}...".format(split))
         self._data_path, self._split = data_path, split
         self._portion, self._side = portion, side
         if cfg.TASK == 'col':
@@ -70,22 +71,21 @@ class ImageNet(torch.utils.data.Dataset):
 
     def _construct_imdb(self):
         """Constructs the imdb."""
-        # Compile the split data path
-        split_path = os.path.join(self._data_path, self._split)
-        logger.info("{} data path: {}".format(self._split, split_path))
-        # Images are stored per class in subdirs (format: n<number>)
-        split_files = os.listdir(split_path)
-        self._class_ids = sorted(f for f in split_files if re.match(r"^n[0-9]+$", f))
-        # Map ImageNet class ids to contiguous ids
-        self._class_id_cont_id = {v: i for i, v in enumerate(self._class_ids)}
+        image_dir = os.path.join(self._data_path, "leftImg8bit", self._split)
+        assert os.path.exists(image_dir), "{} dir not found".format(image_dir)
+        label_dir = os.path.join(self._data_path, "gtFine", self._split)
+        assert os.path.exists(label_dir), "{} dir not found".format(label_dir)
+        self.images = sorted(glob.glob(os.path.join(image_dir, "*", "*_leftImg8bit.png")))
+        self.labels = []
+        for image_fname in self.images:
+            image_fname = image_fname.split("/")[-1].split("leftImg8bit")[0]
+            label_fname = os.path.join(label_dir, image_fname.split("_")[0], image_fname + "gtFine_labelTrainIds.png")
+            assert os.path.exists(label_fname), "{} not found".format(label_name)
+            self.labels.append(label_fname)
         # Construct the image db
         self._imdb = []
-        for class_id in self._class_ids:
-            cont_id = self._class_id_cont_id[class_id]
-            im_dir = os.path.join(split_path, class_id)
-            for im_name in os.listdir(im_dir):
-                im_path = os.path.join(im_dir, im_name)
-                self._imdb.append({"im_path": im_path, "class": cont_id})
+        for im_path, label_path in zip(self.images, self.labels):
+            self._imdb.append({"im_path": im_path, "class": label_path})
         if self._portion:
             # Shuffle so that partition is not correlated with class
             np.random.seed(cfg.RNG_SEED)
@@ -96,7 +96,6 @@ class ImageNet(torch.utils.data.Dataset):
             else:  # self._side == "r"
                 self._imdb = self._imdb[pos:]
         logger.info("Number of images: {}".format(len(self._imdb)))
-        logger.info("Number of classes: {}".format(len(self._class_ids)))
 
     def __getitem__(self, index):
         # Load the image
@@ -105,7 +104,7 @@ class ImageNet(torch.utils.data.Dataset):
         im = im[:, :, ::-1]  # HWC, BGR -> HWC, RGB
         if cfg.TASK == 'rot':
             im, label = prepare_rot(im,
-                                    dataset="imagenet",
+                                    dataset="cityscapes",
                                     split=self._split,
                                     mean=_MEAN,
                                     sd=_SD,
@@ -113,7 +112,7 @@ class ImageNet(torch.utils.data.Dataset):
                                     eig_vecs=_EIG_VECS)
         elif cfg.TASK == 'col':
             im, label = prepare_col(im,
-                                    dataset="imagenet",
+                                    dataset="cityscapes",
                                     split=self._split,
                                     nbrs=self._nbrs,
                                     mean=_MEAN,
@@ -122,7 +121,7 @@ class ImageNet(torch.utils.data.Dataset):
                                     eig_vecs=_EIG_VECS)
         elif cfg.TASK == 'jig':
             im, label = prepare_jig(im,
-                                    dataset="imagenet",
+                                    dataset="cityscapes",
                                     split=self._split,
                                     perms=self._perms,
                                     mean=_MEAN,
@@ -131,15 +130,15 @@ class ImageNet(torch.utils.data.Dataset):
                                     eig_vecs=_EIG_VECS)
         else:
             # Prepare the image for training / testing
-            im = prepare_im(im,
-                            dataset="imagenet",
-                            split=self._split,
-                            mean=_MEAN,
-                            sd=_SD,
-                            eig_vals=_EIG_VALS,
-                            eig_vecs=_EIG_VECS)
-            # Retrieve the label
-            label = self._imdb[index]["class"]
+            label = cv2.imread(self._imdb[index]["class"], cv2.IMREAD_UNCHANGED)
+            label = label.astype(np.int64, copy=False)
+            im, label = prepare_seg(im,
+                                    label,
+                                    split=self._split,
+                                    mean=_MEAN,
+                                    sd=_SD,
+                                    eig_vals=_EIG_VALS,
+                                    eig_vecs=_EIG_VECS)
         return im.copy(), label
 
     def __len__(self):

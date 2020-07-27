@@ -13,30 +13,50 @@ import torch
 from pycls.core.config import cfg
 from pycls.datasets.cifar10 import Cifar10
 from pycls.datasets.imagenet import ImageNet
+from pycls.datasets.imagenet22k import ImageNet22k
+from pycls.datasets.cityscapes import Cityscapes
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
 
 
 # Supported datasets
-_DATASETS = {"cifar10": Cifar10, "imagenet": ImageNet}
+_DATASETS = {"cifar10": Cifar10,
+             "imagenet": ImageNet,
+             "imagenet22k": ImageNet22k,
+             "cityscapes": Cityscapes}
 
 # Default data directory (/path/pycls/pycls/datasets/data)
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 # Relative data paths to default data directory
-_PATHS = {"cifar10": "cifar10", "imagenet": "imagenet"}
+_PATHS = {"cifar10": "cifar10",
+          "imagenet": "imagenet",
+          "imagenet22k": "imagenet22k",
+          "cityscapes": "cityscapes"}
 
 
-def _construct_loader(dataset_name, split, batch_size, shuffle, drop_last):
+def _construct_loader(dataset_name, split, batch_size, shuffle, drop_last, portion=None, side=None):
     """Constructs the data loader for the given dataset."""
     err_str = "Dataset '{}' not supported".format(dataset_name)
     assert dataset_name in _DATASETS and dataset_name in _PATHS, err_str
     # Retrieve the data path for the dataset
     data_path = os.path.join(_DATA_DIR, _PATHS[dataset_name])
     # Construct the dataset
-    dataset = _DATASETS[dataset_name](data_path, split)
+    dataset = _DATASETS[dataset_name](data_path, split, portion, side)
     # Create a sampler for multi-process training
     sampler = DistributedSampler(dataset) if cfg.NUM_GPUS > 1 else None
+    # Create collate_fn
+    if cfg.TASK == "rot":
+        def _collate_fn(batch):
+            batch = torch.utils.data.dataloader.default_collate(batch)
+            assert(len(batch) == 2)
+            b, r, c, h, w = batch[0].size()
+            batch[0] = batch[0].view([b * r, c, h, w])
+            batch[1] = batch[1].view([b * r])
+            return batch
+        collate_fn = _collate_fn
+    else:
+        collate_fn = torch.utils.data.dataloader.default_collate
     # Create a loader
     loader = torch.utils.data.DataLoader(
         dataset,
@@ -44,6 +64,7 @@ def _construct_loader(dataset_name, split, batch_size, shuffle, drop_last):
         shuffle=(False if sampler else shuffle),
         sampler=sampler,
         num_workers=cfg.DATA_LOADER.NUM_WORKERS,
+        collate_fn=collate_fn,
         pin_memory=cfg.DATA_LOADER.PIN_MEMORY,
         drop_last=drop_last,
     )

@@ -28,3 +28,5 @@ pycls/datasets/data/
 # Other
 logs/
 scratch*
+summaries/
+figs/*.pdf

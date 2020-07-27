@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""ImageNet dataset."""
+"""ImageNet22k dataset."""
 
 import os
 import re
@@ -37,14 +37,14 @@ _EIG_VECS = np.array(
 )
 
 
-class ImageNet(torch.utils.data.Dataset):
-    """ImageNet dataset."""
+class ImageNet22k(torch.utils.data.Dataset):
+    """ImageNet22k dataset."""
 
     def __init__(self, data_path, split, portion, side):
         assert os.path.exists(data_path), "Data path '{}' not found".format(data_path)
-        splits = ["train", "val"]
-        assert split in splits, "Split '{}' not supported for ImageNet".format(split)
-        logger.info("Constructing ImageNet {}...".format(split))
+        splits = ["train"]
+        assert split in splits, "Split '{}' not supported for ImageNet22k".format(split)
+        logger.info("Constructing ImageNet22k {}...".format(split))
         self._data_path, self._split = data_path, split
         self._portion, self._side = portion, side
         if cfg.TASK == 'col':
@@ -70,22 +70,16 @@ class ImageNet(torch.utils.data.Dataset):
 
     def _construct_imdb(self):
         """Constructs the imdb."""
-        # Compile the split data path
-        split_path = os.path.join(self._data_path, self._split)
-        logger.info("{} data path: {}".format(self._split, split_path))
-        # Images are stored per class in subdirs (format: n<number>)
-        split_files = os.listdir(split_path)
-        self._class_ids = sorted(f for f in split_files if re.match(r"^n[0-9]+$", f))
+        with open(os.path.join(folder, "data", "imagenet-22k.txt")) as f:
+            im_names = f.readlines()
         # Map ImageNet class ids to contiguous ids
+        self._class_ids = sorted(set([im_name.split('_')[0] for im_name in im_names]))
         self._class_id_cont_id = {v: i for i, v in enumerate(self._class_ids)}
         # Construct the image db
         self._imdb = []
-        for class_id in self._class_ids:
-            cont_id = self._class_id_cont_id[class_id]
-            im_dir = os.path.join(split_path, class_id)
-            for im_name in os.listdir(im_dir):
-                im_path = os.path.join(im_dir, im_name)
-                self._imdb.append({"im_path": im_path, "class": cont_id})
+        for im_name in im_names:
+            cont_id = self._class_id_cont_id[im_name.split('_')[0]]
+            self._imdb.append({"im_path": im_path.strip(), "class": cont_id})
         if self._portion:
             # Shuffle so that partition is not correlated with class
             np.random.seed(cfg.RNG_SEED)
@@ -100,12 +94,21 @@ class ImageNet(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         # Load the image
-        im = cv2.imread(self._imdb[index]["im_path"])
+        im = cv2.imread(os.path.join(self._data_path,
+            self._imdb[index]["im_path"].split('_')[0],
+            self._imdb[index]["im_path"]))
+        while im is None:
+            logger.info("cv2.imread failed for {}; replacing".format(
+                self._imdb[index]["im_path"]))
+            index = np.random.randint(len(self._imdb))
+            im = cv2.imread(os.path.join(self._data_path,
+                self._imdb[index]["im_path"].split('_')[0],
+                self._imdb[index]["im_path"]))
         im = im.astype(np.float32, copy=False)
         im = im[:, :, ::-1]  # HWC, BGR -> HWC, RGB
         if cfg.TASK == 'rot':
             im, label = prepare_rot(im,
-                                    dataset="imagenet",
+                                    dataset="imagenet22k",
                                     split=self._split,
                                     mean=_MEAN,
                                     sd=_SD,
@@ -113,7 +116,7 @@ class ImageNet(torch.utils.data.Dataset):
                                     eig_vecs=_EIG_VECS)
         elif cfg.TASK == 'col':
             im, label = prepare_col(im,
-                                    dataset="imagenet",
+                                    dataset="imagenet22k",
                                     split=self._split,
                                     nbrs=self._nbrs,
                                     mean=_MEAN,
@@ -122,7 +125,7 @@ class ImageNet(torch.utils.data.Dataset):
                                     eig_vecs=_EIG_VECS)
         elif cfg.TASK == 'jig':
             im, label = prepare_jig(im,
-                                    dataset="imagenet",
+                                    dataset="imagenet22k",
                                     split=self._split,
                                     perms=self._perms,
                                     mean=_MEAN,
@@ -132,7 +135,7 @@ class ImageNet(torch.utils.data.Dataset):
         else:
             # Prepare the image for training / testing
             im = prepare_im(im,
-                            dataset="imagenet",
+                            dataset="imagenet22k",
                             split=self._split,
                             mean=_MEAN,
                             sd=_SD,

@@ -58,12 +58,21 @@ def save_checkpoint(model, optimizer, epoch):
     # Omit the DDP wrapper in the multi-gpu setting
     sd = model.module.state_dict() if cfg.NUM_GPUS > 1 else model.state_dict()
     # Record the state
-    checkpoint = {
-        "epoch": epoch,
-        "model_state": sd,
-        "optimizer_state": optimizer.state_dict(),
-        "cfg": cfg.dump(),
-    }
+    if isinstance(optimizer, list):
+        checkpoint = {
+            "epoch": epoch,
+            "model_state": sd,
+            "optimizer_w_state": optimizer[0].state_dict(),
+            "optimizer_a_state": optimizer[1].state_dict(),
+            "cfg": cfg.dump(),
+        }
+    else:
+        checkpoint = {
+            "epoch": epoch,
+            "model_state": sd,
+            "optimizer_state": optimizer.state_dict(),
+            "cfg": cfg.dump(),
+        }
     # Write the checkpoint
     checkpoint_file = get_checkpoint(epoch + 1)
     torch.save(checkpoint, checkpoint_file)
@@ -81,5 +90,9 @@ def load_checkpoint(checkpoint_file, model, optimizer=None):
     ms.load_state_dict(checkpoint["model_state"])
     # Load the optimizer state (commonly not done when fine-tuning)
     if optimizer:
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        if isinstance(optimizer, list):
+            optimizer[0].load_state_dict(checkpoint["optimizer_w_state"])
+            optimizer[1].load_state_dict(checkpoint["optimizer_a_state"])
+        else:
+            optimizer.load_state_dict(checkpoint["optimizer_state"])
     return checkpoint["epoch"]

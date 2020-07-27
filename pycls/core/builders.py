@@ -13,13 +13,42 @@ from pycls.models.anynet import AnyNet
 from pycls.models.effnet import EffNet
 from pycls.models.regnet import RegNet
 from pycls.models.resnet import ResNet
+from pycls.models.nas.nas import NAS
+from pycls.models.nas.nas_search import NAS_Search
+from pycls.models.nas_bench.model_builder import NAS_Bench
+
+
+class LabelSmoothedCrossEntropyLoss(torch.nn.Module):
+    """CrossEntropyLoss with label smoothing."""
+    def __init__(self):
+        super(LabelSmoothedCrossEntropyLoss, self).__init__()
+        self.eps = cfg.MODEL.LABEL_SMOOTHING_EPS
+        self.num_classes = cfg.MODEL.NUM_CLASSES
+
+    def forward(self, logits, target):
+        pred = logits.log_softmax(dim=-1)
+        with torch.no_grad():
+            target_dist = torch.ones_like(pred) * self.eps / (self.num_classes - 1)
+            target_dist.scatter_(-1, target.unsqueeze(-1), 1 - self.eps)
+        return (-target_dist * pred).sum(dim=-1).mean()
 
 
 # Supported models
-_models = {"anynet": AnyNet, "effnet": EffNet, "resnet": ResNet, "regnet": RegNet}
+_models = {
+    "anynet": AnyNet,
+    "effnet": EffNet,
+    "resnet": ResNet,
+    "regnet": RegNet,
+    "nas": NAS,
+    "nas_search": NAS_Search,
+    "nas_bench": NAS_Bench,
+}
 
 # Supported loss functions
-_loss_funs = {"cross_entropy": torch.nn.CrossEntropyLoss}
+_loss_funs = {
+    "cross_entropy": torch.nn.CrossEntropyLoss,
+    "label_smoothed_cross_entropy": LabelSmoothedCrossEntropyLoss,
+}
 
 
 def get_model():
@@ -43,7 +72,10 @@ def build_model():
 
 def build_loss_fun():
     """Build the loss function."""
-    return get_loss_fun()()
+    if cfg.TASK == "seg":
+        return get_loss_fun()(ignore_index=255)
+    else:
+        return get_loss_fun()()
 
 
 def register_model(name, ctor):

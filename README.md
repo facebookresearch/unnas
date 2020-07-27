@@ -1,62 +1,111 @@
-# pycls
+# unnas
 
-**pycls** is an image classification codebase, written in [PyTorch](https://pytorch.org/). It was originally developed for the [On Network Design Spaces for Visual Recognition](https://arxiv.org/abs/1905.13214) project. **pycls** has since matured and been adopted by a number of [projects](#projects) at Facebook AI Research.
+This is the code and data release for the [Are Labels Necessary for Neural Architecture Search?](https://arxiv.org/abs/2003.12056) project. It is a superset of the [pycls](https://github.com/facebookresearch/pycls) codebase written in [PyTorch](https://pytorch.org/), by supporting more:
+
+- Tasks: Rotation Prediction (`rot`), Colorization (`col`), Solving Jigsaw Puzzles (`jig`), Semantic Segmentation (`seg`)
+- Datasets: ImageNet-22K (`imagenet22k`), Cityscapes (`cityscapes`)
+- Backbones: NAS-like (`nas`), NAS-Bench-101 (`nas_bench`)
+- Modes: Differentiable Architecture Search (`nas_search`)
 
 <div align="center">
-  <img src="docs/regnetx_nets.png" width="550px" />
-  <p align="center"><b>pycls</b> provides a large set of baseline models across a wide range of flop regimes.</p>
+  <img src="docs/fig4_top.png" width="550px" />
+  <img src="docs/fig4_bottom.png" width="550px" />
+  <p align="center"><b>unnas</b> supports a wide range of tasks, datasets, backbones, and modes for neural architecture related research.</p>
 </div>
 
-## Introduction
+## Using unnas
 
-The goal of **pycls** is to provide a simple and flexible codebase for image classification. It is designed to support rapid implementation and evaluation of research ideas. **pycls** also provides a large collection of baseline results ([Model Zoo](MODEL_ZOO.md)).
-
-The codebase supports efficient single-machine multi-gpu training, powered by the PyTorch distributed package, and provides implementations of standard models including [ResNet](https://arxiv.org/abs/1512.03385), [ResNeXt](https://arxiv.org/abs/1611.05431), [EfficientNet](https://arxiv.org/abs/1905.11946), and [RegNet](https://arxiv.org/abs/2003.13678).
-
-## Using pycls
-
-Please see [`INSTALL.md`](docs/INSTALL.md) for brief installation instructions. After installation, please see [`GETTING_STARTED.md`](docs/GETTING_STARTED.md) for basic instructions and example commands on training and evaluation with **pycls**.
-
-## Model Zoo
-
-We provide a large set of baseline results and pretrained models available for download in the **pycls** [Model Zoo](MODEL_ZOO.md); including the simple, fast, and effective [RegNet](https://arxiv.org/abs/2003.13678) models that we hope can serve as solid baselines across a wide range of flop regimes.
-
-## Projects
-
-A number of projects at FAIR have been built on top of **pycls**:
-
-- [On Network Design Spaces for Visual Recognition](https://arxiv.org/abs/1905.13214)
-- [Exploring Randomly Wired Neural Networks for Image Recognition](https://arxiv.org/abs/1904.01569)
-- [Designing Network Design Spaces](https://arxiv.org/abs/2003.13678)
-- [Are Labels Necessary for Neural Architecture Search?](https://arxiv.org/abs/2003.12056)
-- [PySlowFast Video Understanding Codebase](https://github.com/facebookresearch/SlowFast)
-
-If you are using **pycls** in your research and would like us to include your project here, please let us know or send a PR.
-
-## Citing pycls
-
-If you find **pycls** helpful in your research or refer to the baseline results in the [Model Zoo](MODEL_ZOO.md), please consider citing:
+In addition to installing PyTorch with CUDA support, run:
 
 ```
-@InProceedings{Radosavovic2019,
-  title = {On Network Design Spaces for Visual Recognition},
-  author = {Radosavovic, Ilija and Johnson, Justin and Xie, Saining and Lo, Wan-Yen and Doll{\'a}r, Piotr},
-  booktitle = {ICCV},
-  year = {2019}
-}
+cd /path/to/clone/unnas
+git clone https://github.com/facebookresearch/unnas
+cd unnas
+pip install -r requirements.txt
+export PYTHONPATH=.
+```
 
-@InProceedings{Radosavovic2020,
-  title = {Designing Network Design Spaces},
-  author = {Radosavovic, Ilija and Kosaraju, Raj Prateek and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
-  booktitle = {CVPR},
+Then please follow [`DATA.md`](docs/DATA.md) to set up the datasets.
+
+All experiments were conducted using (up to 8) Nvidia Quadro GV100, each with 32GB memory. If you are using GPUs with smaller memory, the provided configs may result in out-of-memory error. 
+
+## Sample-Based Experiments
+
+To train an architecture used in sample-based experiments:
+
+```
+python tools/train_net.py \
+    --cfg configs/sample_based/SPACE/DATASET/TASK/ID.yaml \
+    OUT_DIR tmp
+```
+
+where:
+
+- `SPACE` is either `darts` or `nas_bench`
+- `DATASET` is either `cifar10` or `imagenet`
+- `TASK` is either `cls` or `rot` or `col` or `jig`
+- `ID` could be `00004` for `darts`, or `000907` for `nas_bench`
+
+To use different random seeds (e.g. `2`), simply append `RNG_SEED 2` to the command. To obtain our results of these runs:
+
+```
+wget https://dl.fbaipublicfiles.com/unnas/unnas_summaries.zip
+unzip unnas_summaries.zip
+rm unnas_summaries.zip
+```
+
+Repeating our analysis is essentially equivalent to generating the figures in the paper. To do so:
+
+```
+python figs/fig234.py
+python figs/fig5.py
+```
+
+The generated figures will be under the `figs/` folder. 
+
+## Search-Based Experiments
+
+To repeat the *search phase*:
+
+```
+python tools/train_net.py \
+    --cfg configs/search_based/search_phase/DATASET/TASK.yaml \
+    OUT_DIR tmp
+```
+
+where:
+
+- `DATASET` is either `imagenet` or `imagenet22k` or `cityscapes`
+- `TASK` is either `cls`/`seg` or `rot` or `col` or `jig`
+
+To repeat the *evaluation phase*:
+
+```
+python tools/train_net.py \
+    --cfg configs/search_based/eval_phase/TASK/ARCH.yaml \
+    OUT_DIR tmp
+```
+
+where:
+
+- `TASK` is either `cls` (ImageNet-1K classification) or `seg` (Cityscapes semantic segmentation)
+- `ARCH` could be `darts`, `imagenet_rot`, `imagenet22k_col`, `cityscapes_jig`, etc
+
+For either phase, to use different random seeds (e.g. `2`), simply append `RNG_SEED 2` to the command.
+
+## Citing unnas
+
+If you find **unnas** helpful in your research, please consider citing:
+
+```
+@InProceedings{Liu2020,
+  title = {Are Labels Necessary for Neural Architecture Search?},
+  author = {Liu, Chenxi and Doll{\'a}r, Piotr and He, Kaiming and Girshick, Ross and Yuille, Alan and Xie, Saining},
+  booktitle = {ECCV},
   year = {2020}
 }
 ```
 
 ## License
 
-**pycls** is released under the MIT license. Please see the [LICENSE](LICENSE) file for more information.
-
-## Contributing
-
-We actively welcome your pull requests! Please see [`CONTRIBUTING.md`](docs/CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md) for more info.
+**unnas** is released under the MIT license. Please see the [LICENSE](LICENSE) file for more information.
