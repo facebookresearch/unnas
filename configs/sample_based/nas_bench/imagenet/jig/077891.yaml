@@ -1,0 +1,41 @@
+MODEL:
+  TYPE: nas_bench
+  NUM_CLASSES: 1000
+NAS:
+  MATRIX: [[0, 1, 0, 0, 0, 1, 0],
+           [0, 0, 1, 0, 0, 0, 0],
+           [0, 0, 0, 1, 1, 0, 0],
+           [0, 0, 0, 0, 1, 0, 0],
+           [0, 0, 0, 0, 0, 1, 0],
+           [0, 0, 0, 0, 0, 0, 1],
+           [0, 0, 0, 0, 0, 0, 0]]
+  OPS: ['input', 'maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu', 'conv1x1-bn-relu', 'conv1x1-bn-relu', 'output']
+  NUM_STACKS: 3
+  NUM_MODULES_PER_STACK: 4
+  WIDTH: 128
+OPTIM:
+  BASE_LR: 0.0125
+  LR_POLICY: cos
+  MAX_EPOCH: 10
+  MOMENTUM: 0.9
+  NESTEROV: True
+  WEIGHT_DECAY: 0.00005
+TRAIN:
+  DATASET: imagenet
+  SPLIT: train
+  BATCH_SIZE: 32
+  IM_SIZE: 255
+  EVAL_PERIOD: 1
+  GRAY_PERCENTAGE: 0.3
+TEST:
+  DATASET: imagenet
+  SPLIT: val
+  BATCH_SIZE: 25
+  IM_SIZE: 256
+TASK: jig
+NUM_GPUS: 1
+DATA_LOADER:
+  NUM_WORKERS: 4
+CUDNN:
+  BENCHMARK: True
+OUT_DIR: .

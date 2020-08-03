@@ -1,0 +1,54 @@
+MODEL:
+  TYPE: nas
+  NUM_CLASSES: 4
+NAS:
+  GENOTYPE: custom
+  CUSTOM_GENOTYPE:
+  - - [sep_conv_3x3, 0]
+    - [dil_conv_3x3, 1]
+    - [max_pool_3x3, 1]
+    - [sep_conv_5x5, 0]
+    - [dil_conv_5x5, 0]
+    - [sep_conv_5x5, 2]
+    - [sep_conv_3x3, 3]
+    - [avg_pool_3x3, 2]
+  - [2, 3, 4, 5]
+  - - [dil_conv_5x5, 0]
+    - [dil_conv_3x3, 1]
+    - [sep_conv_5x5, 0]
+    - [dil_conv_3x3, 0]
+    - [dil_conv_3x3, 1]
+    - [avg_pool_3x3, 0]
+    - [max_pool_3x3, 2]
+    - [sep_conv_5x5, 2]
+  - [2, 3, 4, 5]
+  WIDTH: 32
+  DEPTH: 22
+BN:
+  USE_PRECISE_STATS: True
+  NUM_SAMPLES_PRECISE: 1024
+OPTIM:
+  BASE_LR: 0.0125
+  LR_POLICY: cos
+  MAX_EPOCH: 5
+  MOMENTUM: 0.9
+  NESTEROV: True
+  WEIGHT_DECAY: 0.00005
+TRAIN:
+  DATASET: imagenet
+  SPLIT: train
+  BATCH_SIZE: 32
+  IM_SIZE: 224
+  EVAL_PERIOD: 1
+TEST:
+  DATASET: imagenet
+  SPLIT: val
+  BATCH_SIZE: 25
+  IM_SIZE: 256
+TASK: rot
+NUM_GPUS: 1
+DATA_LOADER:
+  NUM_WORKERS: 4
+CUDNN:
+  BENCHMARK: True
+OUT_DIR: .

@@ -1,0 +1,46 @@
+MODEL:
+  TYPE: nas_bench
+  NUM_CLASSES: 24
+NAS:
+  MATRIX: [[0, 1, 1, 0, 1, 0, 0],
+           [0, 0, 0, 1, 0, 0, 1],
+           [0, 0, 0, 1, 0, 0, 0],
+           [0, 0, 0, 0, 1, 0, 0],
+           [0, 0, 0, 0, 0, 1, 0],
+           [0, 0, 0, 0, 0, 0, 1],
+           [0, 0, 0, 0, 0, 0, 0]]
+  OPS: ['input', 'maxpool3x3', 'conv3x3-bn-relu', 'maxpool3x3', 'maxpool3x3', 'conv1x1-bn-relu', 'output']
+  NUM_STACKS: 3
+  NUM_MODULES_PER_STACK: 3
+  WIDTH: 128
+BN:
+  USE_PRECISE_STATS: True
+  NUM_SAMPLES_PRECISE: 1024
+OPTIM:
+  BASE_LR: 0.025
+  LR_POLICY: cos
+  MAX_EPOCH: 100
+  MOMENTUM: 0.9
+  NESTEROV: True
+  WEIGHT_DECAY: 0.0005
+TRAIN:
+  DATASET: cifar10
+  SPLIT: train
+  BATCH_SIZE: 32
+  IM_SIZE: 32
+  CHECKPOINT_PERIOD: 10
+  EVAL_PERIOD: 1
+  GRAY_PERCENTAGE: 0.3
+TEST:
+  DATASET: cifar10
+  SPLIT: test
+  BATCH_SIZE: 50
+  IM_SIZE: 32
+TASK: jig
+JIGSAW_GRID: 2
+NUM_GPUS: 1
+DATA_LOADER:
+  NUM_WORKERS: 4
+CUDNN:
+  BENCHMARK: False
+OUT_DIR: .
