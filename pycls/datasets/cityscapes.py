@@ -80,7 +80,7 @@ class Cityscapes(torch.utils.data.Dataset):
         for image_fname in self.images:
             image_fname = image_fname.split("/")[-1].split("leftImg8bit")[0]
             label_fname = os.path.join(label_dir, image_fname.split("_")[0], image_fname + "gtFine_labelTrainIds.png")
-            assert os.path.exists(label_fname), "{} not found".format(label_name)
+            assert os.path.exists(label_fname), "{} not found".format(label_fname)
             self.labels.append(label_fname)
         # Construct the image db
         self._imdb = []
